@@ -7,6 +7,7 @@ from qiskit.visualization import plot_histogram
 from scipy.linalg import expm
 from qiskit.circuit.library import QFT, UnitaryGate
 
+
 class QuantumTunnelingSimulator:
     def __init__(self, num_qubits=5, dt=0.1, total_time=10.0):
         self.num_qubits = num_qubits
@@ -17,6 +18,7 @@ class QuantumTunnelingSimulator:
         self.x_range = np.linspace(0, 1, self.dim)
         self.probabilities = np.zeros((self.steps + 1, self.dim))
 
+    
     def setup_barrier(self, barrier_start=0.4, barrier_end=0.6, barrier_height=1.0):
         self.potential = np.zeros(self.dim)
         barrier_start_idx = int(barrier_start * self.dim)
@@ -26,6 +28,7 @@ class QuantumTunnelingSimulator:
         self.barrier_end = barrier_end
         self.barrier_height = barrier_height
 
+    
     def create_hamiltonian(self, wavepacket_energy=0.5):
         kinetic = np.zeros((self.dim, self.dim))
         for i in range(self.dim):
@@ -38,11 +41,13 @@ class QuantumTunnelingSimulator:
         hamiltonian = kinetic + potential
         self.evolution_operator = expm(-1j * hamiltonian * self.dt)
 
+    
     def create_initial_wavepacket(self, center=0.2, width=0.05, k0=30):
         x = self.x_range
         psi = np.exp(-(x - center)**2 / (2 * width**2)) * np.exp(1j * k0 * x)
         self.initial_state = psi / np.sqrt(np.sum(np.abs(psi)**2))
 
+    
     def evolve_state(self):
         psi = self.initial_state.copy()
         self.probabilities[0] = np.abs(psi)**2
@@ -50,6 +55,7 @@ class QuantumTunnelingSimulator:
             psi = self.evolution_operator @ psi
             self.probabilities[i+1] = np.abs(psi)**2
 
+    
     def simulate_with_qiskit(self):
         self.evolve_state()
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -67,27 +73,34 @@ class QuantumTunnelingSimulator:
         ax.legend(['Probability', 'Potential Barrier'], loc='upper right')
         time_text = ax.text(0.05, 0.95, '', transform=ax.transAxes)
 
+        
         def update(frame):
             line.set_ydata(self.probabilities[frame])
             time_text.set_text(f'Time: {frame * self.dt:.1f}')
             return line, time_text
 
+        
         ani = FuncAnimation(fig, update, frames=self.steps+1, interval=50, blit=True)
         self.qiskit_qpe_implementation()
         return ani
 
+    
     def qiskit_qpe_implementation(self):
         u_gate = UnitaryGate(self.evolution_operator)
         n_counting = 3
         qpe = QuantumCircuit(n_counting + self.num_qubits)
         initial_state_prep = self.create_qiskit_state_preparation()
         qpe = qpe.compose(initial_state_prep, list(range(self.num_qubits)))
+        
         for qubit in range(n_counting):
             qpe.h(qubit)
+            
         for i in range(n_counting):
             power = 2**i
+            
             for _ in range(power):
                 qpe.append(u_gate.control(1), [i] + list(range(n_counting, n_counting + self.num_qubits)))
+                
         qpe.append(QFT(n_counting).inverse(), range(n_counting))
         qpe.measure_all()
         simulator = Aer.get_backend('qasm_simulator')
@@ -105,11 +118,14 @@ class QuantumTunnelingSimulator:
     def create_qiskit_state_preparation(self):
         qc = QuantumCircuit(self.num_qubits)
         center_qubit = int(self.num_qubits * 0.2)
+        
         for i in range(center_qubit - 1, center_qubit + 2):
             if 0 <= i < self.num_qubits:
                 qc.h(i)
+                
         for i in range(self.num_qubits):
             qc.p(i * np.pi / 8, i)
+            
         return qc
 
     def visualize_barrier_transmission(self):
